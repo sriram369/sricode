@@ -76,4 +76,16 @@ describe("HookRunner", () => {
     expect(result.blocked).toBe(false)
     expect(result.output).toBe("")
   })
+
+  it("runs a PostToolUse hook with tool output in env", async () => {
+    await writeFile(tmpConfig, JSON.stringify({
+      hooks: {
+        PostToolUse: [{ matcher: "Read", command: "echo post-hook-ran" }]
+      }
+    }))
+    const runner = new HookRunner(tmpConfig)
+    const result = await runner.runPostToolUse("Read", { content: "file contents" })
+    expect(result.output).toContain("post-hook-ran")
+    expect(result.blocked).toBe(false)
+  })
 })

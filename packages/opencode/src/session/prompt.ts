@@ -470,6 +470,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                     { tool: item.id, sessionID: ctx.sessionID, callID: ctx.callID, args },
                     output,
                   )
+                  // PostToolUse hooks are observational — blocking is intentionally ignored
                   yield* Effect.promise(() => hookRunner.runPostToolUse(item.id, output))
                   return output
                 }),

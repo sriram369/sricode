@@ -209,6 +209,14 @@ try {
   }
   process.exitCode = 1
 } finally {
+  // Run Stop hooks before exiting so users can react to session end
+  try {
+    const { HookRunner } = await import("./hooks/runner")
+    const hookRunner = new HookRunner()
+    await hookRunner.runStop()
+  } catch {
+    // Never let hook failures prevent process exit
+  }
   // Some subprocesses don't react properly to SIGTERM and similar signals.
   // Most notably, some docker-container-based MCP servers don't handle such signals unless
   // run using `docker run --init`.

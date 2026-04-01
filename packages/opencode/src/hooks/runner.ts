@@ -78,6 +78,7 @@ export class HookRunner {
   }
 
   async runStop(): Promise<Hooks.RunResult[]> {
+    // Stop hooks run unconditionally — matcher field is ignored (no tool context at session end)
     return Promise.all(this.config.hooks.Stop.map((h) => this.exec(h.command)))
   }
 }
