@@ -21,6 +21,7 @@ import PROMPT_PLAN from "../session/prompt/plan.txt"
 import BUILD_SWITCH from "../session/prompt/build-switch.txt"
 import MAX_STEPS from "../session/prompt/max-steps.txt"
 import { ToolRegistry } from "../tool/registry"
+import { HookRunner } from "../hooks/runner"
 import { Runner } from "@/effect/runner"
 import { MCP } from "../mcp"
 import { LSP } from "../lsp"
@@ -429,6 +430,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
             ),
         })
 
+        const hookRunner = new HookRunner()
         for (const item of yield* registry.tools(
           { modelID: ModelID.make(input.model.api.id), providerID: input.model.providerID },
           input.agent,
@@ -442,6 +444,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               return Effect.runPromise(
                 Effect.gen(function* () {
                   const ctx = context(args, options)
+                  const preResult = yield* Effect.promise(() =>
+                    hookRunner.runPreToolUse(item.id, args as Record<string, unknown>),
+                  )
+                  if (preResult.blocked) {
+                    throw new Error(`Blocked by PreToolUse hook: ${preResult.output}`)
+                  }
                   yield* plugin.trigger(
                     "tool.execute.before",
                     { tool: item.id, sessionID: ctx.sessionID, callID: ctx.callID },
@@ -462,6 +470,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                     { tool: item.id, sessionID: ctx.sessionID, callID: ctx.callID, args },
                     output,
                   )
+                  yield* Effect.promise(() => hookRunner.runPostToolUse(item.id, output))
                   return output
                 }),
               )
