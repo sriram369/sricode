@@ -55,7 +55,7 @@ import { GoogleAuth } from "google-auth-library"
 import { ProviderTransform } from "./transform"
 import { Installation } from "../installation"
 import { ModelID, ProviderID } from "./schema"
-import { DEFAULT_MODEL as OLLAMA_DEFAULT_MODEL, DEFAULT_PROVIDER as OLLAMA_DEFAULT_PROVIDER, OLLAMA_BASE_URL } from "./ollama"
+import { DEFAULT_MODEL as OLLAMA_DEFAULT_MODEL, DEFAULT_PROVIDER as OLLAMA_DEFAULT_PROVIDER, OLLAMA_BASE_URL, OLLAMA_DUMMY_API_KEY } from "./ollama"
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
@@ -774,12 +774,20 @@ export namespace Provider {
       }
     },
     ollama: async () => {
-      // Ollama runs locally with no API key required — always autoload
+      // Check if Ollama is reachable before autoloading
+      try {
+        await fetch(`${OLLAMA_BASE_URL.replace("/v1", "")}/api/tags`, {
+          signal: AbortSignal.timeout(2000),
+        })
+      } catch {
+        // Ollama not running — skip autoload
+        return { autoload: false }
+      }
       return {
         autoload: true,
         options: {
           baseURL: OLLAMA_BASE_URL,
-          apiKey: "ollama",
+          apiKey: OLLAMA_DUMMY_API_KEY,
         },
       }
     },
@@ -993,7 +1001,7 @@ export namespace Provider {
               name: "Ollama",
               source: "custom",
               env: [],
-              options: { baseURL: OLLAMA_BASE_URL, apiKey: "ollama" },
+              options: {},
               models: {
                 [OLLAMA_DEFAULT_MODEL]: {
                   id: ollamaModelId,
