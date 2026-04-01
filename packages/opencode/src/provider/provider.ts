@@ -55,6 +55,7 @@ import { GoogleAuth } from "google-auth-library"
 import { ProviderTransform } from "./transform"
 import { Installation } from "../installation"
 import { ModelID, ProviderID } from "./schema"
+import { DEFAULT_MODEL as OLLAMA_DEFAULT_MODEL, DEFAULT_PROVIDER as OLLAMA_DEFAULT_PROVIDER, OLLAMA_BASE_URL } from "./ollama"
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
@@ -772,6 +773,16 @@ export namespace Provider {
         },
       }
     },
+    ollama: async () => {
+      // Ollama runs locally with no API key required — always autoload
+      return {
+        autoload: true,
+        options: {
+          baseURL: OLLAMA_BASE_URL,
+          apiKey: "ollama",
+        },
+      }
+    },
   }
 
   export const Model = z
@@ -972,7 +983,48 @@ export namespace Provider {
           using _ = log.time("state")
           const cfg = yield* config.get()
           const modelsDev = yield* Effect.promise(() => ModelsDev.get())
-          const database = mapValues(modelsDev, fromModelsDevProvider)
+          const database = mapValues(modelsDev, fromModelsDevProvider) as Record<string, Info>
+
+          // Inject ollama as a built-in local provider (not in models.dev)
+          if (!database["ollama"]) {
+            const ollamaModelId = ModelID.make(OLLAMA_DEFAULT_MODEL)
+            database["ollama"] = {
+              id: ProviderID.make(OLLAMA_DEFAULT_PROVIDER),
+              name: "Ollama",
+              source: "custom",
+              env: [],
+              options: { baseURL: OLLAMA_BASE_URL, apiKey: "ollama" },
+              models: {
+                [OLLAMA_DEFAULT_MODEL]: {
+                  id: ollamaModelId,
+                  name: OLLAMA_DEFAULT_MODEL,
+                  providerID: ProviderID.make(OLLAMA_DEFAULT_PROVIDER),
+                  family: "",
+                  release_date: "",
+                  status: "active",
+                  api: {
+                    id: OLLAMA_DEFAULT_MODEL,
+                    npm: "@ai-sdk/openai-compatible",
+                    url: OLLAMA_BASE_URL,
+                  },
+                  capabilities: {
+                    temperature: true,
+                    reasoning: false,
+                    attachment: false,
+                    toolcall: true,
+                    input: { text: true, audio: false, image: false, video: false, pdf: false },
+                    output: { text: true, audio: false, image: false, video: false, pdf: false },
+                    interleaved: false,
+                  },
+                  cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+                  limit: { context: 32768, output: 8192 },
+                  headers: {},
+                  options: {},
+                  variants: {},
+                },
+              },
+            }
+          }
 
           const disabled = new Set(cfg.disabled_providers ?? [])
           const enabled = cfg.enabled_providers ? new Set(cfg.enabled_providers) : null
@@ -1511,6 +1563,14 @@ export namespace Provider {
         if (cfg.model) return parseModel(cfg.model)
 
         const s = yield* InstanceState.get(cache)
+
+        // Prefer ollama/qwen3.5:14b when no model is configured (zero-config local default)
+        const ollamaProviderID = ProviderID.make(OLLAMA_DEFAULT_PROVIDER)
+        const ollamaModelID = ModelID.make(OLLAMA_DEFAULT_MODEL)
+        if (s.providers[ollamaProviderID]?.models[ollamaModelID]) {
+          return { providerID: ollamaProviderID, modelID: ollamaModelID }
+        }
+
         const recent = yield* Effect.promise(() =>
           Filesystem.readJson<{
             recent?: { providerID: ProviderID; modelID: ModelID }[]
