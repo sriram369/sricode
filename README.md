@@ -1,6 +1,17 @@
 # sricode
 
+![SriCode Hero](docs/sricode-hero.png)
+
 Local AI coding agent for Sriram — powered by [Ollama](https://ollama.com) + [qwen3.5:14b](https://ollama.com/library/qwen3.5) + [OMC](https://github.com/Yeachan-Heo/oh-my-claudecode) skills.
+
+## Why SriCode?
+
+Claude Code is great — until it hits a token limit and pauses mid-task. SriCode **never stops**.
+
+- **Zero token limits** — Ralph keeps running until the task is done
+- **$0 cost** — Runs on your machine, no API bills
+- **100% private** — Your code never leaves your laptop
+- **OMC multi-agent orchestration** — A weaker model with better orchestration beats a stronger model running solo
 
 ## Prerequisites
 
